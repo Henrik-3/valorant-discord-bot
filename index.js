@@ -307,13 +307,13 @@ client.on('interactionCreate', async interaction => {
                 console.log(error);
             });
     await client.scommands.get(interaction.commandName).execute({interaction: interaction, guilddata: guilddata});
-    //Stats Leagues_gg
+    /*Stats Leagues_gg
     console.log(interaction.commandName);
     try {
         await OptIn(interaction);
     } catch (e) {
         console.log(e);
-    }
+    }*/
 });
 
 client.on('messageCreate', async message => {
