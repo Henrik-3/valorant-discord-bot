@@ -5,7 +5,7 @@ import {MongoClient} from 'mongodb';
 import axios from 'axios';
 
 const basedata = JSON.parse(readFileSync('./basedata.json'));
-const mongoclient = new MongoClient(basedata.mongoaccess);
+const mongoclient = new MongoClient(basedata.mongoapi);
 mongoclient.connect();
 const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
@@ -31,17 +31,17 @@ const embedBuilder = ({title, desc, additionalFields, color, thumbnail, image, f
     const fields = [];
     if (additionalFields) fields.push(...additionalFields);
     return {
-        title: title,
-        description: desc ? desc : null,
-        fields: fields,
-        author: author ? author : null,
+        title,
+        description: desc ?? null,
+        fields,
+        author: author ?? null,
         thumbnail: {
-            url: thumbnail ? thumbnail : null,
+            url: thumbnail ??  null,
         },
         image: {
-            url: image ? image : null,
+            url: image ??  null,
         },
-        color: color ? color : 0xffffff,
+        color: color ?? 0xead023,
         timestamp: new Date().toISOString(),
         footer: {
             text: footer ? `${footer.tag} | ${footer.id}` : guild.name,
@@ -49,6 +49,20 @@ const embedBuilder = ({title, desc, additionalFields, color, thumbnail, image, f
         },
     };
 };
+const create_key = async ({userid, type, limit, name, details, info}) => {
+    const token = `HDEV-${uuidv4()}`;
+    await getDB({db: 'API', col: 'tokens'}).insertOne({
+        userid,
+        token,
+        limit,
+        name,
+        details,
+        info,
+        type,
+        admin: false,
+    })
+    return token
+}
 
 const select_icon = {
     valorant: {
@@ -76,7 +90,8 @@ setInterval(async () => {
         if (
             page.channel &&
             client.channels.cache.get(page.channel) &&
-            moment(page.latest_build).unix() < moment(cf_page.data.result.latest_deployment.created_on).unix()
+            moment(page.latest_build).unix() < moment(cf_page.data.result.latest_deployment.created_on).unix() &&
+            cf_page.data.result.latest_deployment.aliases[0]
         ) {
             const channel = await client.channels.fetch(page.channel, {force: false});
             await channel.send({
@@ -109,7 +124,7 @@ setInterval(async () => {
                             {name: 'Deploy URL', value: cf_page.data.result.latest_deployment.url},
                             {name: 'Latest Build URL', value: cf_page.data.result.latest_deployment.aliases[0]},
                         ],
-                        guild: channel.guild,
+                        guild: channel.guild ?? client.guilds.cache.get("704231681309278228"),
                     }),
                 ],
             });
@@ -186,19 +201,19 @@ client.on('messageCreate', async message => {
             embeds: [
                 embedBuilder({
                     title: 'API Key Generation',
-                    desc: `Klick on the \`Generate\` Button below beginn the process of the key generation. If you need a higher Rate Limit klick on \`Upgrade RL\`.`,
+                    desc: `Klick on the \`Generate\` Button below beginn the process of the key generation.`,
                     additionalFields: [
                         {
-                            name: 'No Key',
-                            value: `\`\`\`- 30req/min (2 uncached accounts/hour)\n- Suitable for: Twitch Bots | Educational purposes (How do i code etc)\`\`\``,
+                            name: 'VALORANT (Basic Key)',
+                            value: `\`\`\`- Access to: "VALORANT"\n- 30req/min\n- Suitable for: Twitch Bots | Educational purposes (How do i code etc)\`\`\``,
                         },
                         {
-                            name: 'Basic Key',
-                            value: `\`\`\`- 90req/min (unlimited uncached accounts/hour)\n- Suitable for: Private Discord Bots (Servers) / Websites\`\`\``,
+                            name: 'Advanced Key',
+                            value: `\`\`\`- Access to: "VALORANT"\n- 90req/min\n- Suitable for: Private Discord Bots (Servers) / Websites\`\`\``,
                         },
                         {
                             name: 'Production Key',
-                            value: `\`\`\`- Rate Limit you requested\n- Suitable for: Production Discord Bots / Websites\n- PLEASE MAKE SURE THAT YOU ALSO REQUEST AN OFFICIAL VALORANT API KEY AT RIOT TO GET RSO IF YOU HAVE A STATS FEATURE FOR EXAMPLE\`\`\``,
+                            value: `\`\`\`- Access to: "VALORANT"\n- Rate Limit you requested\n- Suitable for: Production Discord Bots / Websites\n- API not intended for production use, grant will only happen with valid reason\`\`\``,
                         },
                     ],
                     guild: interaction.guild,
@@ -485,6 +500,44 @@ client.on('interactionCreate', async interaction => {
         const args = interaction.customId.split(';');
         switch (args[0]) {
             case 'genkey': {
+                let game = args[1];
+                let type = args[2];
+                if (game == "valorant" && type == "basic") {
+                    const token = await create_key({
+                        userid: interaction.user.id,
+                        type: 'valorant',
+                        limit: 30,
+                        name: interaction.fields.getTextInputValue('title'),
+                        details: interaction.fields.getTextInputValue('desc'),
+                        info: interaction.fields.getTextInputValue('addinfo'),
+                    });
+                    interaction.editReply({
+                        embeds: [
+                            embedBuilder({
+                                title: `Key generated`,
+                                desc: `The key was generated, you will get a DM Notification with the key so you can see the code later too. Please make sure the Bot is able to send you Private Messages`,
+                                additionalFields: [
+                                    {name: 'Key', value: token},
+                                    {name: 'Rate Limit', value: '30req/min'},
+                                ],
+                                guild: interaction.guild,
+                            }),
+                        ],
+                    });
+                    return interaction.user.send({
+                        embeds: [
+                            embedBuilder({
+                                title: `Key generated`,
+                                desc: `Your key for the VALORANT API was generated`,
+                                additionalFields: [
+                                    {name: 'Key', value: token},
+                                    {name: 'Rate Limit', value: '30req/min'},
+                                ],
+                                guild: interaction.guild,
+                            }),
+                        ],
+                    });
+                }
                 client.channels.cache.get('983100719840256090').send({
                     embeds: [
                         embedBuilder({
@@ -621,24 +674,21 @@ client.on('interactionCreate', async interaction => {
             case 'applicationacceptconfirm': {
                 const user = await client.users.fetch(interaction.customId.split(';')[1]);
                 const message = await client.channels.cache.get('983100719840256090').messages.fetch(interaction.customId.split(';')[2]);
-                const tokens = `HDEV-${uuidv4()}`;
-                getDB({db: 'API', col: 'tokens'}).insertOne({
+                const token = await create_key({
                     userid: user.id,
-                    token: tokens,
+                    type: message.embeds[0].fields.find(i => i.name == 'Type').value,
                     limit: 90,
                     name: message.embeds[0].fields.find(i => i.name == 'Product Name').value,
                     details: message.embeds[0].fields.find(i => i.name == 'Details').value,
                     info: message.embeds[0].fields.find(i => i.name == 'Additional Information').value,
-                    type: message.embeds[0].fields.find(i => i.name == 'Type') ? message.embeds[0].fields.find(i => i.name == 'Type').value : 'valorant',
-                    admin: false,
-                });
+                })
                 user.send({
                     embeds: [
                         embedBuilder({
                             title: `Application accepted`,
                             desc: `Your application for the ${message.embeds[0].fields.find(i => i.name == 'Type').value} API got accepted`,
                             additionalFields: [
-                                {name: 'Key', value: tokens},
+                                {name: 'Key', value: token},
                                 {name: 'Rate Limit', value: '90req/min'},
                                 {
                                     name: 'Additional Information',
@@ -754,6 +804,57 @@ client.on('interactionCreate', async interaction => {
                             },
                         ],
                     });
+                if (interaction.values[0] == 'valorant')
+                    return interaction.update({
+                        ephemeral: true,
+                        embeds: [
+                            embedBuilder({
+                                title: "Select the API Key Type you'd like to apply for",
+                                description: 'You can select between the following types: Basic, Advanced, Production',
+                            }),
+                        ],
+                        components: [
+                            {
+                                type: ComponentType.ActionRow,
+                                components: [
+                                    {
+                                        type: ComponentType.SelectMenu,
+                                        customId: `genkey;${interaction.values[0]}`,
+                                        maxValues: 1,
+                                        options: [
+                                            {
+                                                value: 'basic',
+                                                label: 'VALORANT (Basic Key)',
+                                                description: 'Rate Limit: 30req/min',
+                                                emoji: {
+                                                    id: '722028690053136434',
+                                                    name: 'VALORANT',
+                                                },
+                                            },
+                                            {
+                                                value: 'advanced',
+                                                label: 'VALORANT (Advanced Key)',
+                                                description: 'Rate Limit: 90req/min',
+                                                emoji: {
+                                                    id: '722028690053136434',
+                                                    name: 'VALORANT',
+                                                },
+                                            },
+                                            {
+                                                value: 'production',
+                                                label: 'VALORANT (Production Key)',
+                                                description: 'Rate Limit: Custom',
+                                                emoji: {
+                                                    id: '722028690053136434',
+                                                    name: 'VALORANT',
+                                                },
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                        ],
+                    })
                 return interaction.showModal({
                     title: 'Generate API Key',
                     customId: `genkey;${interaction.user.id};${interaction.values[0]}`,
@@ -846,6 +947,58 @@ client.on('interactionCreate', async interaction => {
                         },
                     ],
                 });
+            }
+            case "genkey": {
+                let game = args[1];
+                switch (game) {
+                    case "valorant": {
+                        let type = interaction.values[0];
+                        return interaction.showModal({
+                            title: 'Generate API Key',
+                            customId: `genkey;${interaction.user.id};${game};${type}`,
+                            components: [
+                                {
+                                    type: ComponentType.ActionRow,
+                                    components: [
+                                        {
+                                            type: ComponentType.TextInput,
+                                            customId: 'title',
+                                            style: TextInputStyle.Short,
+                                            label: 'Product Name',
+                                            required: true,
+                                        },
+                                    ],
+                                },
+                                {
+                                    type: ComponentType.ActionRow,
+                                    components: [
+                                        {
+                                            type: ComponentType.TextInput,
+                                            customId: 'desc',
+                                            style: TextInputStyle.Paragraph,
+                                            label: 'Product Description',
+                                            max_length: 1000,
+                                            required: true,
+                                        },
+                                    ],
+                                },
+                                {
+                                    type: ComponentType.ActionRow,
+                                    components: [
+                                        {
+                                            type: ComponentType.TextInput,
+                                            customId: 'addinfo',
+                                            style: TextInputStyle.Paragraph,
+                                            label: 'Additional information you want to provide',
+                                            max_length: 1000,
+                                            required: false,
+                                        },
+                                    ],
+                                },
+                            ],
+                        });
+                    }
+                }
             }
         }
     }
