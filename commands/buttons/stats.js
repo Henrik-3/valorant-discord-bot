@@ -9,7 +9,7 @@ import {
     getTranslations,
     riottoken,
     getCustomBackground,
-    getFunction,
+    getFunction, hdevtoken,
 } from '../../methods.js';
 
 export async function execute({interaction, args, guilddata} = {}) {
@@ -40,7 +40,7 @@ export async function execute({interaction, args, guilddata} = {}) {
             ? await axios
                   .get(`https://${dbstats.region}.api.riotgames.com/val/match/v1/matchlists/by-puuid/${dbstats.puuid}`, {headers: {'X-Riot-Token': riottoken}})
                   .catch(e => e)
-            : await axios.get(`https://api.henrikdev.xyz/valorantlabs/v1/matches/${dbstats.region}/${dbstats.ingamepuuid}`).catch(e => e);
+            : await axios.get(`https://api.henrikdev.xyz/valorantlabs/v1/matches/${dbstats.region}/${dbstats.ingamepuuid}`, {headers: {Authorization: hdevtoken}}).catch(e => e);
     if (matchlist.response)
         return errorhandlerinteraction({
             type: 'matchlist',

@@ -18,30 +18,32 @@ use std::{
     env,
     sync::{Arc, Mutex},
 };
+use ab_glyph::FontRef;
+use mongodb::options::ReturnDocument;
 use structs::database::{CommandEntry, Settings, TranslationEntry};
 use valorant_assets_api::models::language::Language;
 
 mod commands;
 mod methods;
 mod structs;
+mod jobs;
 
 lazy_static! {
-    static ref READY: Mutex<bool> = Mutex::new(false);
+    static ref FONT_TUNGSTON: RwLock<Vec<u8>> = RwLock::new(include_bytes!("assets/fonts/new/Tungsten-Bold_Web.ttf").to_vec());
+    static ref MARK_PRO: RwLock<Vec<u8>> = RwLock::new(include_bytes!("assets/fonts/new/MarkPro-Bold.ttf").to_vec());
+    static ref READY: RwLock<bool> = RwLock::new(false);
     static ref ENVIRONMENT: String = {
         let cli = Cli::parse();
-        match cli.environment {
-            Some(v) => v,
-            None => {
+        cli.environment.unwrap_or_else(|| {
                 if cfg!(warn_assertions) {
                     "CANARY".to_string()
                 } else {
                     "PROD".to_string()
                 }
-            }
-        }
+            })
     };
-    static ref TRANSLATIONS: Arc<Mutex<Vec<structs::database::TranslationEntry>>> =
-        Arc::new(Mutex::new(vec![]));
+    static ref TRANSLATIONS: Arc<RwLock<Vec<structs::database::TranslationEntry>>> =
+        Arc::new(RwLock::new(vec![]));
 }
 
 #[derive(Parser)]
@@ -104,29 +106,22 @@ impl EventHandler for Handler {
     }
 }
 
-pub fn get_db<T: DeserializeOwned>(
+pub fn get_db<T: DeserializeOwned + Send + Sync>(
     client: &MongoClient,
     collection: &str,
     db: Option<&str>,
 ) -> mongodb::Collection<T> {
-    let db = match db {
-        Some(v) => v,
-        None => {
-            if cfg!(debug_assertions) {
-                "ValorantLabsDev"
-            } else {
-                "ValorantLabsRust"
-            }
+    let db = db.unwrap_or_else(|| {
+        if cfg!(debug_assertions) {
+            "ValorantLabsDev"
+        } else {
+            "ValorantLabsDev"
         }
-    };
+    });
     warn!("DB: {}", db);
     client.database(db).collection::<T>(collection)
 }
 pub async fn get_settings(client: &MongoClient, guild: &str) -> Settings {
-    let options = mongodb::options::FindOneAndUpdateOptions::builder()
-        .upsert(Some(true))
-        .return_document(Some(mongodb::options::ReturnDocument::After))
-        .build();
     let db = get_db::<Settings>(client, "settings", None)
         .find_one_and_update(
             doc! {
@@ -151,8 +146,9 @@ pub async fn get_settings(client: &MongoClient, guild: &str) -> Settings {
                     }
                 }
             },
-            Some(options),
         )
+        .upsert(true)
+        .return_document(ReturnDocument::After)
         .await
         .expect("[ERROR][SLASH_COMMAND] Guild Data");
     warn!("Guild Data: {:?}", db);
@@ -174,10 +170,10 @@ pub fn get_valo_papi_language(language: &str) -> Language {
         _ => Language::EnUs,
     }
 }
-pub fn get_translation(name: &str, language: &str) -> String {
+pub async fn get_translation(name: &str, language: &str) -> String {
     let mut new_name = format!("bot.{}.", language);
     new_name.push_str(name);
-    let translation = TRANSLATIONS.lock().unwrap();
+    let translation = TRANSLATIONS.read().await;
     let translation_clone = translation.iter().find(|x| x.language == language).clone();
     if translation_clone.is_none() {
         return new_name.to_string();
@@ -199,12 +195,12 @@ pub fn get_translation(name: &str, language: &str) -> String {
     }
     name.to_string()
 }
-pub fn set_translations(translations: Vec<structs::database::TranslationEntry>) {
-    let mut translation = TRANSLATIONS.lock().unwrap();
+pub async fn set_translations(translations: Vec<TranslationEntry>) {
+    let mut translation = TRANSLATIONS.write().await;
     *translation = translations;
 }
-pub fn set_ready() {
-    let mut ready = READY.lock().unwrap();
+pub async fn set_ready() {
+    let mut ready = READY.write().await;
     *ready = true;
 }
 
@@ -216,6 +212,11 @@ async fn main() {
     } else {
         env_logger::init_from_env(env_logger::Env::new().default_filter_or("warn"));
     }
+
+    /*//Test
+    structs::test::draw_blur().await;
+    return;*/
+
     // Login with a bot token from the environment
     let token = env::var("CANARY").expect("token");
     let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
@@ -240,7 +241,6 @@ async fn main() {
                 doc! {
                     "enabled_for.builds": {"$in": ENVIRONMENT.as_str()}
                 },
-                None,
             )
             .await;
         let collected = match db {
@@ -311,7 +311,7 @@ async fn main() {
         warn!("[DEPLOY] Deployed");
     };
     let translations_db = get_db::<TranslationEntry>(&mongo_client, "translations", None)
-        .find(doc! {}, None)
+        .find(doc! {})
         .await;
     set_translations(
         translations_db
@@ -319,9 +319,12 @@ async fn main() {
             .map(|x| x.unwrap())
             .collect::<Vec<_>>()
             .await,
-    );
-    set_ready();
+    ).await;
+    set_ready().await;
     warn!("[TRANSLATIONS] Translations loaded");
+
+    //Jobs
+    tokio::spawn(jobs::agent::build_agent_images_job());
 
     if let Err(why) = client.start_autosharded().await {
         println!("An error occurred while running the client: {:?}", why);

@@ -10,7 +10,7 @@ import {
     getCustomBackground,
     getTranslations,
     riottoken,
-    getFunction,
+    getFunction, hdevtoken,
 } from '../../methods.js';
 
 export async function execute({message, guilddata, args} = {}) {
@@ -56,7 +56,7 @@ export async function execute({message, guilddata, args} = {}) {
                       .catch(error => {
                           return error;
                       })
-                : await axios.get(`https://api.henrikdev.xyz/valorantlabs/v1/matches/${dbstats.region}/${dbstats.ingamepuuid}`).catch(error => {
+                : await axios.get(`https://api.henrikdev.xyz/valorantlabs/v1/matches/${dbstats.region}/${dbstats.ingamepuuid}`,{headers: {Authorization: hdevtoken}}).catch(error => {
                       return error;
                   });
     }
@@ -93,7 +93,7 @@ export async function execute({message, guilddata, args} = {}) {
                       .catch(error => {
                           return error;
                       })
-                : await axios.get(`https://api.henrikdev.xyz/valorantlabs/v1/matches/${dbstats.region}/${dbstats.ingamepuuid}`).catch(error => {
+                : await axios.get(`https://api.henrikdev.xyz/valorantlabs/v1/matches/${dbstats.region}/${dbstats.ingamepuuid}`, {headers: {Authorization: hdevtoken}}).catch(error => {
                       return error;
                   });
     }

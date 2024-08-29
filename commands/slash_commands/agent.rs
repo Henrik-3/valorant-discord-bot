@@ -35,11 +35,11 @@ pub async fn execute(command: CommandInteraction, ctx: Context, guild_data: Sett
     });
     if agent.is_none() {
         let embed = embed_builder(EmbedBuilderStruct {
-            title: Some(get_translation("agent.unknown.title", &guild_data.language)),
+            title: Some(get_translation("agent.unknown.title", &guild_data.language).await),
             description: Some(get_translation(
                 "agent.unknown.description",
                 &guild_data.language,
-            )),
+            ).await),
             client: ctx.cache.current_user().clone(),
             ..Default::default()
         });

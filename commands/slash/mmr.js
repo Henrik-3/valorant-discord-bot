@@ -1,4 +1,17 @@
-import {ComponentType, ButtonStyle, getDB, axios, embedBuilder, getTranslations, topgg, getCustomBackground, ranks, old_ranks, getFunction} from '../../methods.js';
+import {
+    ComponentType,
+    ButtonStyle,
+    getDB,
+    axios,
+    embedBuilder,
+    getTranslations,
+    topgg,
+    getCustomBackground,
+    ranks,
+    old_ranks,
+    getFunction,
+    hdevtoken
+} from '../../methods.js';
 
 export async function execute({interaction, guilddata} = {}) {
     const translations = getTranslations();
@@ -88,7 +101,7 @@ export async function execute({interaction, guilddata} = {}) {
             ],
         });
     const puuid = await axios
-        .get(`https://api.henrikdev.xyz/valorant/v1/account/${encodeURI(account_details.name)}/${encodeURI(account_details.tag)}?asia=true`)
+        .get(`https://api.henrikdev.xyz/valorant/v1/account/${encodeURI(account_details.name)}/${encodeURI(account_details.tag)}?asia=true`, {headers: {Authorization: hdevtoken}})
         .catch(error => {
             return error;
         });
@@ -96,7 +109,7 @@ export async function execute({interaction, guilddata} = {}) {
     const mmrdb = await getDB('mmr').findOne({puuid: puuid.data.data.puuid});
     const mmr = mmrdb
         ? mmrdb
-        : await axios.get(`https://api.henrikdev.xyz/valorant/v2/by-puuid/mmr/${puuid.data.data.region}/${puuid.data.data.puuid}`).catch(error => {
+        : await axios.get(`https://api.henrikdev.xyz/valorant/v2/by-puuid/mmr/${puuid.data.data.region}/${puuid.data.data.puuid}`, {headers: {Authorization: hdevtoken}}).catch(error => {
               return error;
           });
     if (mmr.response) return errorhandlerinteraction({interaction, status: mmr.response.status, type: 'stats', lang: guilddata.lang, data: mmr.response.data});

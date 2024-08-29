@@ -1,5 +1,6 @@
 use crate::structs::base::{DiscordCommand, EnabledFor};
 use serde::{Deserialize, Serialize};
+use valorant_assets_api::models::language::Language;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CommandEntry {
@@ -12,6 +13,7 @@ pub struct TranslationEntry {
     #[serde(rename = "type")]
     pub type_: String,
     pub language: String,
+    pub officer: String,
     pub bot: TranslationBotLanguages,
 }
 #[derive(Serialize, Deserialize, Debug)]

@@ -1,4 +1,4 @@
-import {Canvas, axios, moment, AttachmentBuilder} from '../methods.js';
+import {Canvas, axios, moment, AttachmentBuilder, hdevtoken} from '../methods.js';
 import {buildText} from './buildText.js';
 
 export const buildStatsImage = async function ({dbstats, agent, modes, bgcanvas} = {}) {
@@ -10,7 +10,7 @@ export const buildStatsImage = async function ({dbstats, agent, modes, bgcanvas}
     gradient.addColorStop(1, '#FF6690');
     ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
     const rank = dbstats.ingamepuuid
-        ? await axios.get(`https://api.henrikdev.xyz/valorant/v1/by-puuid/mmr/${dbstats.region}/${dbstats.ingamepuuid}`).catch(error => {
+        ? await axios.get(`https://api.henrikdev.xyz/valorant/v1/by-puuid/mmr/${dbstats.region}/${dbstats.ingamepuuid}`, {headers: {Authorization: hdevtoken}}).catch(error => {
               return error;
           })
         : null;

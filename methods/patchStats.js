@@ -1,4 +1,17 @@
-import {getDB, axios, randomize, getAgents, moment, riottoken, ComponentType, getTranslations, gamemodes, getFunction, maps} from '../methods.js';
+import {
+    getDB,
+    axios,
+    randomize,
+    getAgents,
+    moment,
+    riottoken,
+    ComponentType,
+    getTranslations,
+    gamemodes,
+    getFunction,
+    maps,
+    hdevtoken
+} from '../methods.js';
 
 export const patchStats = async function ({dbstats, mmatches, message, lang, agent, modes, bgcanvas} = {}) {
     const agents = getAgents();
@@ -16,7 +29,7 @@ export const patchStats = async function ({dbstats, mmatches, message, lang, age
     for (let i = 0; mmatches.length > i; i++) {
         reqs.push(
             dbstats.ingamepuuid
-                ? axios.get(`https://api.henrikdev.xyz/valorantlabs/v1/match/${dbstats.region}/${mmatches[i].matchId}`, {timeout: 4000}).catch(error => {
+                ? axios.get(`https://api.henrikdev.xyz/valorant/v2/match/${mmatches[i].matchId}`, {timeout: 4000, headers: {Authorization: hdevtoken}}).catch(error => {
                       return error;
                   })
                 : axios

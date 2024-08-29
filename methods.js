@@ -92,6 +92,7 @@ export const sysinfo = system;
 export const topgg = basedata.dbltoken;
 export const roles = ['unranked', 'iron', 'bronze', 'silver', 'gold', 'platinum', 'diamond', 'ascendant', 'immortal', 'radiant'];
 export const riottoken = basedata.riottoken;
+export const hdevtoken = basedata.hdevtoken;
 export const clusters = {
     na: {
         status: 'https://api.henrikdev.xyz/valorant/v1/status/na',

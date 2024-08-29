@@ -1,4 +1,5 @@
 import {getFunction, getDB, axios, basedata, getManager, getAgents, getGamemodes, addRSO, updateRSO, deleteRSO, _} from '../shard.js';
+import {hdevtoken} from "../methods.js";
 
 export const steps = {
     delete: [
@@ -163,7 +164,7 @@ export default async function (fastify, opts, done) {
         );
         if (region.response) return deleteRSO(req.query.state);
         const db = await axios
-            .get(`https://api.henrikdev.xyz/valorant/v1/account/${encodeURI(userinfo.data.gameName)}/${encodeURI(userinfo.data.tagLine)}?asia=true`)
+            .get(`https://api.henrikdev.xyz/valorant/v1/account/${encodeURI(userinfo.data.gameName)}/${encodeURI(userinfo.data.tagLine)}`, {headers: {Authorization: hdevtoken}})
             .catch(e => e);
         await stepUpdate(
             fastify.io.to(getClient(req.query.state)),
@@ -178,7 +179,7 @@ export default async function (fastify, opts, done) {
         if (db.response) return deleteRSO(req.query.state);
         if (fstate.type == 'autorole') {
             const guilddata = await getDB('settings').findOne({gid: fstate.guild});
-            const mmr = await axios.get(`https://api.henrikdev.xyz/valorant/v2/by-puuid/mmr/${region.data.activeShard}/${db.data.data.puuid}?asia=true`).catch(e => e);
+            const mmr = await axios.get(`https://api.henrikdev.xyz/valorant/v2/by-puuid/mmr/${region.data.activeShard}/${db.data.data.puuid}`, {headers: {Authorization: hdevtoken}}).catch(e => e);
             await stepUpdate(
                 fastify.io.to(getClient(req.query.state)),
                 {
