@@ -201,7 +201,7 @@ client.on('messageCreate', async message => {
 			embeds: [
 				embedBuilder({
 					title: 'API Key Generation',
-					desc: `Klick on the \`Generate\` Button below beginn the process of the key generation.`,
+					desc: `Klick on the \`Generate\` Button below beginn the process of the key generation.\n\n**Please note: If you need a custom key, please open a ticket in the support channel and explain why you need a custom rate limit**`,
 					additionalFields: [
 						{
 							name: 'VALORANT (Basic Key)',
@@ -516,6 +516,18 @@ client.on('interactionCreate', async interaction => {
 			case 'genkey': {
 				let game = args[2];
 				let type = args[3];
+				if (game == "valorant" && type == "advanced" && (interaction.fields.getTextInputValue('title').toLowerCase().includes('obs') || interaction.fields.getTextInputValue('desc').toLowerCase().includes('obs'))) {
+					return interaction.editReply({
+						embeds: [
+							embedBuilder({
+								title: 'Invalid Key',
+								desc: `OBS Keys are only available for the Basic Key type, please apply for a basic key`,
+								color: 0xff4654,
+								guild: interaction.guild,
+							}),
+						],
+					})
+				}
 				if (game == "valorant" && type == "basic") {
 					const token = await create_key({
 						userid: interaction.user.id,
@@ -862,15 +874,6 @@ client.on('interactionCreate', async interaction => {
 													name: 'VALORANT',
 												},
 											},
-											{
-												value: 'production',
-												label: 'VALORANT (Production Key)',
-												description: 'Rate Limit: Custom',
-												emoji: {
-													id: '722028690053136434',
-													name: 'VALORANT',
-												},
-											},
 										],
 									},
 								],
@@ -924,6 +927,18 @@ client.on('interactionCreate', async interaction => {
 			}
 			case 'upgrade': {
 				const key = await getDB({db: 'API', col: 'tokens'}).findOne({token: interaction.values[0]});
+				if (key.title.toLowerCase().includes('OBS') || key.details.toLowerCase().includes('OBS')) {
+					return interaction.reply({
+						embeds: [
+							embedBuilder({
+								title: 'Invalid Key',
+								desc: `OBS Keys are only available for the Basic Key type and can not be upgraded.`,
+								color: 0xff4654,
+								guild: interaction.guild,
+							}),
+						],
+					})
+				}
 				return interaction.showModal({
 					title: 'Upgrade API Key',
 					customId: `upkey;${interaction.user.id};${interaction.values[0]}`,
@@ -975,6 +990,43 @@ client.on('interactionCreate', async interaction => {
 				switch (game) {
 					case "valorant": {
 						let type = interaction.values[0];
+						if (type == "obs") {
+							const token = await create_key({
+								userid: interaction.user.id,
+								type: 'valorant',
+								limit: 30,
+								name: "OBS Overlay Key",
+								details: "Key for OBS Overlays (auto generated)",
+								info: "This key is auto generated and can be used for OBS Overlays",
+							});
+							interaction.update({
+								embeds: [
+									embedBuilder({
+										title: `Key generated`,
+										desc: `The key was generated, you will get a DM Notification with the key so you can see the code later too. Please make sure the Bot is able to send you Private Messages`,
+										additionalFields: [
+											{name: 'Key', value: token},
+											{name: 'Rate Limit', value: '30req/min'},
+										],
+										guild: interaction.guild,
+									}),
+								],
+								components: [],
+							});
+							return interaction.user.send({
+								embeds: [
+									embedBuilder({
+										title: `Key generated`,
+										desc: `Your key for the VALORANT API was generated`,
+										additionalFields: [
+											{name: 'Key', value: token},
+											{name: 'Rate Limit', value: '30req/min'},
+										],
+										guild: interaction.guild,
+									}),
+								],
+							});
+						}
 						return interaction.showModal({
 							title: 'Generate API Key',
 							customId: `genkey;${interaction.user.id};${game};${type}`,

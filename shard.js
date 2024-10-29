@@ -106,7 +106,7 @@ manager.on('shardCreate', async shard => {
     shard.on('ready', async rshard => {
         console.log('Ready', shard.id);
         if (manager.shards.size == manager.totalShards && restart == false) {
-            if (environment == 'live') {
+            if (environment != 'live') {
                 const fetchWebsite = getFunction('fetchWebsite');
                 const shard_status_update = getFunction('shard_status_update');
                 fetchWebsite(manager);

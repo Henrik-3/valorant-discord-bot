@@ -1,12 +1,9 @@
-use serenity::{all::CommandInteraction, builder::EditInteractionResponse, client::Context};
-
-use crate::{get_translation, structs::methods::EmbedBuilderStruct};
-
+use poise::CreateReply;
+use crate::{get_translation, structs::methods::EmbedBuilderStruct, Context};
 use super::embed_builder::embed_builder;
 
 pub async fn http_error_handler(
-    command: CommandInteraction,
-    ctx: &Context,
+    ctx: &Context<'_>,
     language: &str,
     status: &u16,
 ) {
@@ -15,6 +12,7 @@ pub async fn http_error_handler(
         &format!("response.{}.description", status.to_string()),
         language,
     ).await;
+    let c_user = ctx.cache().current_user().clone();
     if title == format!("response.{}.title", status.to_string()) {
         let embed = embed_builder(EmbedBuilderStruct {
             title: Some(get_translation(
@@ -25,19 +23,19 @@ pub async fn http_error_handler(
                 &format!("response.{}.description", "500"),
                 language,
             ).await),
-            client: ctx.cache.current_user().clone(),
+            client: c_user,
             ..Default::default()
         });
-        let build = EditInteractionResponse::new().add_embed(embed);
-        let _ = command.edit_response(&ctx.http, build).await;
+        let build = CreateReply::default().embed(embed);
+        let _ = ctx.send(build).await;
         return;
     }
     let embed = embed_builder(EmbedBuilderStruct {
         title: Some(title),
         description: Some(description),
-        client: ctx.cache.current_user().clone(),
+        client: c_user,
         ..Default::default()
     });
-    let build = EditInteractionResponse::new().add_embed(embed);
-    let _ = command.edit_response(&ctx.http, build).await;
+    let build = CreateReply::default().embed(embed);
+    let _ = ctx.send(build).await;
 }

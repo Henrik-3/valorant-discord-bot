@@ -229,3 +229,23 @@ pub fn apply_color_layer(img: &mut RgbaImage, color: Rgba<u8>) {
         *pixel = blend_pixels(*pixel, color);
     }
 }
+
+pub fn pick_text_color_based_on_bg_color_simple(color: Rgba<u8>, light_color: Option<Rgba<u8>>, dark_color: Option<Rgba<u8>>) -> Rgba<u8> {
+    let dark_color = dark_color.unwrap_or(Rgba([0, 0, 0, 255]));
+    let light_color = light_color.unwrap_or(Rgba([255, 255, 255, 255]));
+
+    // Parse the hex string to RGB values
+    let r = color[0]; // hexToR
+    let g = color[1]; // hexToG
+    let b = color[2]; // hexToB
+
+    // Calculate brightness based on luminance formula
+    let brightness = (r as f64 * 0.299 + g as f64 * 0.587 + b as f64 * 0.114) as u8;
+
+    // Return dark color if brightness > 186, otherwise light color
+    if brightness > 186 {
+        dark_color
+    } else {
+        light_color
+    }
+}

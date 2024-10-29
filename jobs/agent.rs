@@ -6,7 +6,7 @@ use valorant_assets_api::models::agent::{Agent, AgentAbilitySlot};
 use valorant_assets_api::models::language::Language;
 use crate::{FONT_TUNGSTON, MARK_PRO, TRANSLATIONS};
 use crate::structs::http_clients::fetch;
-use crate::structs::image::{create_3d_effect, create_enhanced_blur, create_enhanced_blur_with_color};
+use crate::structs::image::{create_3d_effect, create_enhanced_blur, create_enhanced_blur_with_color, pick_text_color_based_on_bg_color_simple};
 use crate::structs::methods::{get_officer_from_lang, hex_with_opacity_to_rgba};
 
 pub async fn build_agent_images_job() {
@@ -29,7 +29,7 @@ pub async fn build_agent_images() {
     let img = image::open("./assets/background/ProdRedBlur.png").expect("Failed to open input image");
 
     for language in all_languages.iter() {
-        let all_agents = valorant_assets_api::agents::get_agents(&client, Some(get_officer_from_lang(&language.officer)), Some(true)).await.expect("Failed to fetch agents");
+        let all_agents = valorant_assets_api::agents::get_agents(&client, Some(get_officer_from_lang(&language.officer)), Some(true)).await.    expect("Failed to fetch agents");
         for agent in all_agents {
             let mut img_ = img.clone().to_rgba8();
 
@@ -116,7 +116,11 @@ pub async fn build_agent_images() {
                         break;
                     }
                 }
-                draw_text_mut(&mut img_, Rgba([175, 175, 175, 175]), (x_mid - text_length_drawn.0 as i64 / 2) as i32, 1750, PxScale {
+                draw_text_mut(&mut img_, if i == 4 {
+                    pick_text_color_based_on_bg_color_simple(agent_hex, None, None)
+                } else {
+                    Rgba([225, 255, 255, 255])
+                }, (x_mid - text_length_drawn.0 as i64 / 2) as i32, 1750, PxScale {
                     x: text,
                     y: text,
                 }, &font_mark_pro, ability.display_name.as_str());

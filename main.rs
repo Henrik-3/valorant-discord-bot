@@ -2,24 +2,21 @@ use clap::Parser;
 use dotenv::dotenv;
 use env_logger;
 use lazy_static::lazy_static;
-use log::{error, warn};
-use mongodb::{bson::doc, Client as MongoClient};
+use mongodb::{bson::doc, Client as MongoClient, Client};
 use serde::de::DeserializeOwned;
-use serenity::{
-    all::{CommandOptionType, Interaction, OnlineStatus},
-    async_trait,
-    builder::{CreateCommand, CreateCommandOption},
-    futures::StreamExt,
-    gateway::ActivityData,
-    model::{application::Command, Permissions},
-    prelude::*,
-};
+use poise::serenity_prelude as serenity;
 use std::{
     env,
-    sync::{Arc, Mutex},
+    sync::{Arc},
 };
+use tokio::{sync::Mutex};
+use tokio::sync::RwLock;
 use ab_glyph::FontRef;
 use mongodb::options::ReturnDocument;
+use poise::futures_util::TryStreamExt;
+use serde::{Deserialize, Serialize};
+use serenity::all::{ComponentInteractionDataKind, InteractionType};
+use serenity::futures::stream::iter;
 use structs::database::{CommandEntry, Settings, TranslationEntry};
 use valorant_assets_api::models::language::Language;
 
@@ -35,7 +32,7 @@ lazy_static! {
     static ref ENVIRONMENT: String = {
         let cli = Cli::parse();
         cli.environment.unwrap_or_else(|| {
-                if cfg!(warn_assertions) {
+                if cfg!(println_assertions) {
                     "CANARY".to_string()
                 } else {
                     "PROD".to_string()
@@ -54,11 +51,19 @@ struct Cli {
     #[arg(short)]
     deploy: Option<bool>,
 }
-struct Handler {
+struct Data {
     db: MongoClient,
 }
+#[derive(Serialize, Deserialize)]
+struct InvocationData {
+    guild_data: Settings,
+}
+struct Handler;
+type Error = Box<dyn std::error::Error + Send + Sync>;
+type Context<'a> = poise::Context<'a, Data, Error>;
 
-#[async_trait]
+
+/*#[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: serenity::all::Ready) {
         println!(
@@ -93,7 +98,7 @@ impl EventHandler for Handler {
                 "shard-restart" => {
                     let options = command.data.options();
                     let shard_id = options.iter().find(|x| x.name == "shard_id");
-                    warn!("[SHARD-RESTART] Shard ID: {:?}", shard_id);
+                    println!("[SHARD-RESTART] Shard ID: {:?}", shard_id);
                 }
                 "agent" => {
                     commands::slash_commands::agent::execute(command, ctx, guild_data).await;
@@ -104,7 +109,7 @@ impl EventHandler for Handler {
             }
         }
     }
-}
+}*/
 
 pub fn get_db<T: DeserializeOwned + Send + Sync>(
     client: &MongoClient,
@@ -118,7 +123,7 @@ pub fn get_db<T: DeserializeOwned + Send + Sync>(
             "ValorantLabsDev"
         }
     });
-    warn!("DB: {}", db);
+    println!("DB: {}", db);
     client.database(db).collection::<T>(collection)
 }
 pub async fn get_settings(client: &MongoClient, guild: &str) -> Settings {
@@ -151,7 +156,7 @@ pub async fn get_settings(client: &MongoClient, guild: &str) -> Settings {
         .return_document(ReturnDocument::After)
         .await
         .expect("[ERROR][SLASH_COMMAND] Guild Data");
-    warn!("Guild Data: {:?}", db);
+    println!("Guild Data: {:?}", db);
     db.unwrap()
 }
 pub fn get_valo_papi_language(language: &str) -> Language {
@@ -204,38 +209,119 @@ pub async fn set_ready() {
     *ready = true;
 }
 
+async fn event_handler<'a>(
+    ctx: &serenity::Context,
+    event: &serenity::FullEvent,
+    _framework: poise::FrameworkContext<'_, Data, Error>,
+) -> Result<(), Error> {
+    match event {
+        serenity::FullEvent::InteractionCreate {interaction} => {
+            match interaction.kind() {
+                InteractionType::Component => {
+                    let component = interaction.as_message_component().unwrap();
+                    match component.data.kind.clone() {
+                        ComponentInteractionDataKind::Button => {
+                            match component.data.custom_id.clone() {
+                                x if x.contains("rang") => {
+
+                                }
+                                _ => {}
+                            }
+                            Ok(())
+                        }
+                        _ => {
+                            Ok(())
+                        }
+                    }
+                }
+                _ => {
+                    Ok(())
+                }
+            }
+        }
+        _ => {
+            Ok(())
+        }
+    }
+}
+
+pub async fn start_discord(client: Client) -> serenity::prelude::Client {
+    let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
+    let intens = serenity::GatewayIntents::GUILD_MESSAGES | serenity::GatewayIntents::GUILDS;
+    let framework = poise::Framework::builder()
+        .options(poise::FrameworkOptions {
+            event_handler: |ctx, event, framework, data| {
+                Box::pin(event_handler(ctx, event, framework))
+            },
+            command_check: Some(|ctx| {
+                Box::pin(async move {
+                    // Global command check is the first callback that's invoked, so let's set the
+                    // data here
+                    let mongo = &ctx.data().db;
+                    let guild_data = get_settings(&mongo, ctx.guild_id().unwrap().to_string().as_str()).await;
+                    ctx.set_invocation_data::<InvocationData>(InvocationData {
+                        guild_data,
+                    }).await;
+
+                    Ok(true)
+                })
+            }),
+            commands: vec![
+                commands::slash_commands::agent::execute(), //agents
+            ],
+            ..Default::default()
+        })
+        .setup(move |ctx, _ready, framework| {
+            Box::pin(async move {
+                Ok(Data {
+                    db: client.clone()
+                })
+            })
+        })
+        .build();
+    let mut client = serenity::prelude::Client::builder(token, intens)
+        .framework(framework)
+        .await
+        .expect("Err creating client");
+    client
+}
+
 #[tokio::main]
-async fn main() {
+async fn main() -> tokio::io::Result<()> {
     dotenv().ok();
-    if cfg!(warn_assertions) {
-        env_logger::init_from_env(env_logger::Env::new().default_filter_or("warn"));
+    if cfg!(println_assertions) {
+        env_logger::init_from_env(env_logger::Env::new().default_filter_or("println"));
     } else {
-        env_logger::init_from_env(env_logger::Env::new().default_filter_or("warn"));
+        env_logger::init_from_env(env_logger::Env::new().default_filter_or("println"));
     }
 
     /*//Test
     structs::test::draw_blur().await;
     return;*/
-
-    // Login with a bot token from the environment
-    let token = env::var("CANARY").expect("token");
-    let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
-
-    warn!("[MONGO_DB] Init MongoDB");
+    
+    println!("[MONGO_DB] Init MongoDB");
     let mongo_client = MongoClient::with_uri_str(env::var("MONGO_DB").unwrap())
         .await
         .expect("failed to connect");
 
-    let mut client = Client::builder(token, intents)
-        .event_handler(Handler {
-            db: mongo_client.clone(),
-        })
-        .await
-        .expect("Error creating client");
+    println!("[DISCORD] Init Discord");
+    let discord_client = start_discord(mongo_client.clone()).await;
+    let discord_client = Arc::new(Mutex::new(discord_client));
+
+    let http = discord_client.lock().await.http.clone();
+    let cache = discord_client.lock().await.cache.clone();
+
+    let discord_client_clone = Arc::clone(&discord_client);
+    println!("Starting Discord Client");
+    tokio::spawn(async move {
+        if let Err(why) = discord_client_clone.lock().await.start_autosharded().await {
+            println!("Client ended: {:?}", why);
+        }
+    });
 
     let cli = Cli::parse();
     if cli.deploy.is_some() {
-        warn!("[DEPLOY] Deploying");
+        println!("[DEPLOY] Deploying");
         let db = get_db::<CommandEntry>(&mongo_client, "commands", None)
             .find(
                 doc! {
@@ -245,12 +331,12 @@ async fn main() {
             .await;
         let collected = match db {
             Ok(v) => {
-                v.map(|x| {
-                    let command: structs::database::CommandEntry = x.unwrap();
-                    let mut command_builder = CreateCommand::new(command.command.name);
+                let collected = v.try_collect().await.unwrap_or_else(|_| vec![]);;
+                collected.into_iter().map(|command| {
+                    let mut command_builder = serenity::CreateCommand::new(command.command.name);
                     command_builder = command_builder.description(command.command.description);
                     if command.command.default_member_permissions.is_some() {
-                        let permissions = Permissions::from_bits(
+                        let permissions = serenity::Permissions::from_bits(
                             command
                                 .command
                                 .default_member_permissions
@@ -267,18 +353,18 @@ async fn main() {
                             .options
                             .iter()
                             .map(|y| {
-                                let mut option_builder = CreateCommandOption::new(
+                                let mut option_builder = serenity::CreateCommandOption::new(
                                     match y.type_ {
-                                        1 => CommandOptionType::SubCommand,
-                                        2 => CommandOptionType::SubCommandGroup,
-                                        3 => CommandOptionType::String,
-                                        4 => CommandOptionType::Integer,
-                                        5 => CommandOptionType::Boolean,
-                                        6 => CommandOptionType::User,
-                                        7 => CommandOptionType::Channel,
-                                        8 => CommandOptionType::Role,
-                                        9 => CommandOptionType::Mentionable,
-                                        _ => CommandOptionType::Role,
+                                        1 => serenity::CommandOptionType::SubCommand,
+                                        2 => serenity::CommandOptionType::SubCommandGroup,
+                                        3 => serenity::CommandOptionType::String,
+                                        4 => serenity::CommandOptionType::Integer,
+                                        5 => serenity::CommandOptionType::Boolean,
+                                        6 => serenity::CommandOptionType::User,
+                                        7 => serenity::CommandOptionType::Channel,
+                                        8 => serenity::CommandOptionType::Role,
+                                        9 => serenity::CommandOptionType::Mentionable,
+                                        _ => serenity::CommandOptionType::Role,
                                     },
                                     y.name.clone(),
                                     y.description.clone(),
@@ -298,17 +384,16 @@ async fn main() {
                     command_builder
                 })
                 .collect::<Vec<_>>()
-                .await
             }
             Err(e) => {
-                error!("[DEPLOY] Error: {:?}", e);
+                eprintln!("[DEPLOY] Error: {:?}", e);
                 vec![]
             }
         };
-        Command::set_global_commands(&client.http, collected)
+        serenity::Command::set_global_commands(&http, collected)
             .await
             .unwrap();
-        warn!("[DEPLOY] Deployed");
+        println!("[DEPLOY] Deployed");
     };
     let translations_db = get_db::<TranslationEntry>(&mongo_client, "translations", None)
         .find(doc! {})
@@ -316,17 +401,18 @@ async fn main() {
     set_translations(
         translations_db
             .unwrap()
-            .map(|x| x.unwrap())
-            .collect::<Vec<_>>()
-            .await,
+            .try_collect::<Vec<_>>()
+            .await
+            .expect("Failed to collect translations")
     ).await;
     set_ready().await;
-    warn!("[TRANSLATIONS] Translations loaded");
+    println!("[TRANSLATIONS] Translations loaded");
 
     //Jobs
-    tokio::spawn(jobs::agent::build_agent_images_job());
+    tokio::spawn(jobs::agent::build_agent_images_job());;
 
-    if let Err(why) = client.start_autosharded().await {
-        println!("An error occurred while running the client: {:?}", why);
+    //keep programm running
+    loop {
+        tokio::time::sleep(tokio::time::Duration::from_secs(60 * 60)).await;
     }
 }
