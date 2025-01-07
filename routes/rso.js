@@ -1,4 +1,5 @@
 import {getFunction, getDB, axios, basedata, getManager, getAgents, getGamemodes, addRSO, updateRSO, deleteRSO, _} from '../shard.js';
+import {hdevtoken} from "../methods.js";
 
 export const steps = {
     delete: [
@@ -63,7 +64,7 @@ export default async function (fastify, opts, done) {
         const manager = getManager();
         if (!req.query.state) return res.redirect(`/rso?uuid=null`);
         const fstate = await getDB('state').findOne({code: req.query.state});
-        addRSO(req.query.state, fstate.type, steps[fstate.type]);
+        addRSO(req.query.state, fstate?.type ?? 'stats', steps[fstate?.type ?? 'stats']);
         res.redirect(`/rso?uuid=${req.query.state ?? null}`);
         if (!fstate) return fastify.io.to(getClient(req.query.state)).emit('UNKNOWN_STATE', {unknown_state: true});
 
@@ -163,7 +164,7 @@ export default async function (fastify, opts, done) {
         );
         if (region.response) return deleteRSO(req.query.state);
         const db = await axios
-            .get(`https://api.henrikdev.xyz/valorant/v1/account/${encodeURI(userinfo.data.gameName)}/${encodeURI(userinfo.data.tagLine)}?asia=true`)
+            .get(`https://api.henrikdev.xyz/valorant/v1/account/${encodeURI(userinfo.data.gameName)}/${encodeURI(userinfo.data.tagLine)}`, {headers: {Authorization: hdevtoken}})
             .catch(e => e);
         await stepUpdate(
             fastify.io.to(getClient(req.query.state)),
@@ -178,7 +179,7 @@ export default async function (fastify, opts, done) {
         if (db.response) return deleteRSO(req.query.state);
         if (fstate.type == 'autorole') {
             const guilddata = await getDB('settings').findOne({gid: fstate.guild});
-            const mmr = await axios.get(`https://api.henrikdev.xyz/valorant/v2/by-puuid/mmr/${region.data.activeShard}/${db.data.data.puuid}?asia=true`).catch(e => e);
+            const mmr = await axios.get(`https://api.henrikdev.xyz/valorant/v2/by-puuid/mmr/${region.data.activeShard}/${db.data.data.puuid}`, {headers: {Authorization: hdevtoken}}).catch(e => e);
             await stepUpdate(
                 fastify.io.to(getClient(req.query.state)),
                 {
@@ -452,9 +453,10 @@ export default async function (fastify, opts, done) {
         if (fstate.type == 'stats') {
             const matchlist = await axios
                 .get(`https://${region.data.activeShard}.api.riotgames.com/val/match/v1/matchlists/by-puuid/${userinfo.data.puuid}`, {
-                    headers: {'X-Riot-Token': riottoken},
+                    headers: {'X-Riot-Token': basedata.riottoken},
                 })
                 .catch(e => e);
+            console.log(matchlist);
             await stepUpdate(
                 fastify.io.to(getClient(req.query.state)),
                 {

@@ -1,4 +1,13 @@
-import {embedBuilder, getTranslations, getCustomBackground, AttachmentBuilder, getDB, axios, getFunction} from '../../methods.js';
+import {
+    embedBuilder,
+    getTranslations,
+    getCustomBackground,
+    AttachmentBuilder,
+    getDB,
+    axios,
+    getFunction,
+    hdevtoken
+} from '../../methods.js';
 
 export async function execute({interaction, args, guilddata} = {}) {
     await interaction.deferUpdate();
@@ -23,7 +32,7 @@ export async function execute({interaction, args, guilddata} = {}) {
     const mmrdb = await getDB('mmr').findOne({puuid: args[2]});
     const mmr = mmrdb
         ? mmrdb
-        : await axios.get(`https://api.henrikdev.xyz/valorant/v2/by-puuid/mmr/${args[1]}/${args[2]}`).catch(error => {
+        : await axios.get(`https://api.henrikdev.xyz/valorant/v2/by-puuid/mmr/${args[1]}/${args[2]}`, {headers: {Authorization: hdevtoken}}).catch(error => {
               return error;
           });
     if (mmr.response) return errorhandlerinteraction({interaction, status: mmr.response.status, type: 'stats', lang: guilddata.lang, data: mmr.response.data});

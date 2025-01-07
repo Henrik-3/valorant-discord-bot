@@ -11,7 +11,9 @@ import {
     getFunction,
     getAgents,
     getGamemodes,
+    axios,
 } from '../methods.js';
+import {constants} from "zlib";
 
 const getAutoRoles = getFunction('getAutoRoles');
 const getGuild = getFunction('getGuild');

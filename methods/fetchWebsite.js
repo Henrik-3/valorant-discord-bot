@@ -1,4 +1,4 @@
-import {getDB, moment, axios, getTranslations, sleep} from '../methods.js';
+import {getDB, moment, axios, getTranslations, sleep, hdevtoken} from '../methods.js';
 export const fetchWebsite = async function (manager) {
     const translations = getTranslations();
     const types = ['patchnotes', 'othernews', 'maintenance', 'incidents'];
@@ -7,7 +7,7 @@ export const fetchWebsite = async function (manager) {
     for (let i = 0; types.length > i; i++) {
         if (i == 0 || i == 1) {
             for (let k = 0; ccodes.length > k; k++) {
-                const website = await axios.get(i == 0 ? translations[ccodes[k]].patchurl : translations[ccodes[k]].websiteurl).catch(error => {
+                const website = await axios.get(i == 0 ? translations[ccodes[k]].patchurl : translations[ccodes[k]].websiteurl, {headers: {Authorization: hdevtoken}}).catch(error => {
                     return error;
                 });
                 if (!website.response && !website.code) {
@@ -16,6 +16,7 @@ export const fetchWebsite = async function (manager) {
                         i == 0
                             ? website.data.data.filter(item => moment(item.date).unix() > db.patchnotes)
                             : website.data.data.filter(item => moment(item.date).unix() > db.datewebsite && item.category != 'patch_notes');
+                    console.log(article, db);
                     if (article.length) {
                         getDB('websitecheck').updateOne(
                             {code: ccodes[k]},
@@ -131,7 +132,7 @@ export const fetchWebsite = async function (manager) {
         }
         if (i == 2 || i == 3) {
             for (let k = 0; ccodes.length > k; k++) {
-                const website = await axios.get(translations[ccodes[k]].statusurl).catch(error => {
+                const website = await axios.get(translations[ccodes[k]].statusurl, {headers: {Authorization: hdevtoken}}).catch(error => {
                     return error;
                 });
                 if (!website.response) {

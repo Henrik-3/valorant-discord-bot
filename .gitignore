@@ -9,3 +9,6 @@ databasefix.js
 \js
 test.js
 .env.*
+target
+.env
+partner

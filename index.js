@@ -1,9 +1,9 @@
 import {Client, GatewayIntentBits, Collection, Options, ModalSubmitInteraction} from 'discord.js';
 import {readFileSync, readdirSync, writeFileSync} from 'fs';
-import {perms, embedBuilder, getTranslations, ActivityType, ComponentType, ButtonStyle, updateFunctions, getFunction} from './methods.js';
-import {guildSettings} from './methods/guildSettings.js';
+import {perms, embedBuilder, getTranslations, ActivityType, ComponentType, ButtonStyle, updateFunctions, getFunction, getDB} from './methods.js';
 import path, {dirname} from 'path';
 import {fileURLToPath} from 'url';
+import {OptIn, signUpDecider} from './partner/leagues_gg.js';
 
 const basedata = JSON.parse(readFileSync('./basedata.json'));
 const api = JSON.parse(readFileSync('./api.json'));
@@ -152,9 +152,23 @@ client.on('interactionCreate', async interaction => {
     const translations = getTranslations();
     const guildSettings = getFunction('guildSettings');
     const guilddata = await guildSettings(interaction.guild);
+    await getDB('statistics').insertOne({
+        guild: interaction.guildId ?? null,
+        invoked_at: new Date(),
+        user: interaction.user.id,
+        command: {
+            type: interaction.type,
+            name: interaction.commandName ?? null,
+            custom_id: interaction.customId?.split(';')?.[0] ?? null,
+            custom_id_full: interaction.customId ?? null,
+        },
+    });
     if (!interaction.isChatInputCommand() || interaction.isMessageContextMenuCommand()) {
         const args = interaction.customId?.split(';');
-        if (interaction.isButton()) return client.buttoncommands.get(args[0]).execute({interaction, args, guilddata});
+        if (interaction.isButton()) {
+            if (args[0] == 'leagues_gg' && args[1] == 'signup') return signUpDecider(interaction, args);
+            return client.buttoncommands.get(args[0]).execute({interaction, args, guilddata});
+        }
         if (interaction instanceof ModalSubmitInteraction) return client.modals.get(args[0]).execute({interaction, args, guilddata});
         if (interaction.isStringSelectMenu()) return client.selectcommands.get(args[0]).execute({interaction, args, guilddata});
         if (interaction.isChannelSelectMenu()) return client.channelselectcommands.get(args[0]).execute({interaction, args, guilddata});
@@ -292,7 +306,14 @@ client.on('interactionCreate', async interaction => {
             .catch(error => {
                 console.log(error);
             });
-    client.scommands.get(interaction.commandName).execute({interaction: interaction, guilddata: guilddata});
+    await client.scommands.get(interaction.commandName).execute({interaction: interaction, guilddata: guilddata});
+    /*Stats Leagues_gg
+    console.log(interaction.commandName);
+    try {
+        await OptIn(interaction);
+    } catch (e) {
+        console.log(e);
+    }*/
 });
 
 client.on('messageCreate', async message => {

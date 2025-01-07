@@ -92,6 +92,7 @@ export const sysinfo = system;
 export const topgg = basedata.dbltoken;
 export const roles = ['unranked', 'iron', 'bronze', 'silver', 'gold', 'platinum', 'diamond', 'ascendant', 'immortal', 'radiant'];
 export const riottoken = basedata.riottoken;
+export const hdevtoken = basedata.hdevtoken;
 export const clusters = {
     na: {
         status: 'https://api.henrikdev.xyz/valorant/v1/status/na',
@@ -251,6 +252,11 @@ export const agents = [
         id: '0e38b510-41a8-5780-5e8f-568b2a4f2d6c',
         discord_id: '<:duelist:868802702258352178>',
     },
+	{
+		name: 'Clove',
+		id: '1dbf2edd-4729-0984-3115-daa5eed44993',
+		discord_id: '<:controller:868803058711277598>',
+	},
 ];
 export const weapons = {
     'EWallPenetrationDisplayType::High': 'High',
@@ -330,6 +336,15 @@ export const gamemodes = {
             animated: false,
         },
     },
+	'custom': {
+		name: 'Custom Game',
+		path: 'unrated.png',
+		emoji: {
+			name: 'unrated',
+			id: '958441359126167613',
+			animated: false,
+		},
+	},
     newmap: {
         name: 'New Map',
         path: 'unrated.png',
@@ -357,6 +372,15 @@ export const gamemodes = {
             animated: false,
         },
     },
+	premier: {
+		name: 'Premier',
+		path: 'premier.png',
+		emoji: {
+			name: 'premier',
+			id: '1225905255880065044',
+			animated: false,
+		},
+	},
 };
 export const maps = {
     '/Game/Maps/Triad/Triad': 'Haven',

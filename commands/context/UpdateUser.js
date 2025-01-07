@@ -1,4 +1,15 @@
-import {embedBuilder, getTranslations, ComponentType, ButtonStyle, getFunction, axios, roles, getDB, firstletter} from '../../methods.js';
+import {
+    embedBuilder,
+    getTranslations,
+    ComponentType,
+    ButtonStyle,
+    getFunction,
+    axios,
+    roles,
+    getDB,
+    firstletter,
+    hdevtoken
+} from '../../methods.js';
 export async function execute({interaction, args, guilddata} = {}) {
     await interaction.deferReply({ephemeral: true});
     const translations = getTranslations();
@@ -15,7 +26,7 @@ export async function execute({interaction, args, guilddata} = {}) {
                 }),
             ],
         });
-    const mmr = await axios.get(`https://api.henrikdev.xyz/valorant/v2/by-puuid/mmr/${link.link.region}/${link.link.puuid}?asia=true`).catch(error => {
+    const mmr = await axios.get(`https://api.henrikdev.xyz/valorant/v2/by-puuid/mmr/${link.link.region}/${link.link.puuid}?asia=true`, {headers: {Authorization: hdevtoken}}).catch(error => {
         return error;
     });
     if (mmr.response) return errorhandlerinteraction({interaction, status: mmr.response, type: 'mmr', lang: guilddata.lang, data: mmr.response.data});

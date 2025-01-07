@@ -1,4 +1,16 @@
-import {axios, embedBuilder, ranks, old_ranks, moment, Canvas, getTranslations, getAgents, AttachmentBuilder, gamemodes} from '../methods.js';
+import {
+    axios,
+    embedBuilder,
+    ranks,
+    old_ranks,
+    moment,
+    Canvas,
+    getTranslations,
+    getAgents,
+    AttachmentBuilder,
+    gamemodes,
+    hdevtoken
+} from '../methods.js';
 import {getGameKey} from './getGameKey.js';
 import {buildText} from './buildText.js';
 
@@ -6,7 +18,7 @@ export const buildGameImage = async function ({id, guilddata, matchid, bgcanvas}
     const translations = getTranslations();
     const gamekey = matchid ? true : await getGameKey(id);
     if (!gamekey) return {error: null, unknown: true, embed: null, image: null};
-    const match = await axios.get(`https://api.henrikdev.xyz/valorant/v2/match/${matchid ?? gamekey.matchid}`).catch(error => {
+    const match = await axios.get(`https://api.henrikdev.xyz/valorant/v2/match/${matchid ?? gamekey.matchid}`, {headers: {Authorization: hdevtoken}}).catch(error => {
         return error;
     });
     if (match.response) return {error: match.response, unknown: null, embed: null, image: null};
@@ -15,7 +27,7 @@ export const buildGameImage = async function ({id, guilddata, matchid, bgcanvas}
             const fields = [];
             const sorted_array = match.data.data.players.all_players.sort((player2, player1) => player2.stats.score - player1.stats.score);
             for (let i = 0; sorted_array.length > i; i++) {
-                const rank = await axios.get(`https://api.henrikdev.xyz/valorant/v1/by-puuid/mmr/eu/${sorted_array[i].puuid}`).catch(error => {
+                const rank = await axios.get(`https://api.henrikdev.xyz/valorant/v1/by-puuid/mmr/eu/${sorted_array[i].puuid}`, {headers: {Authorization: hdevtoken}}).catch(error => {
                     return error;
                 });
                 fields.push({
